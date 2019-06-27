@@ -3,7 +3,7 @@ from collections import defaultdict
 import numpy as np, pandas as pd
 import _config
 
-from _config import SHE3202_FQ_FILES, EXP_DESIGN_2901, OLIGO_LIBRARY, SHE3202_DIR, A_BC_OLIGOS_OUT, OUT_PLACE as OUT_DIR
+from _config import  OLIGO_LIBRARY, A_BC_OLIGOS_OUT, OUT_PLACE as OUT_DIR
 sys.path.append('/cluster/bh0085/')
 
 from mybio import util
@@ -93,22 +93,19 @@ def demultiplex( split,nm):
    notfound = 0
    num_valerr = 0
    
-   umis_by_oligo = dict()
+   bcs_by_oligo = dict()
    poorly_aligned = 0   
 
    subject_features0 = np.array([featurize(s) for s in  OLIGO_LIBRARY.Sequences.values]) / len(OLIGO_LIBRARY.Sequences[0])
    subject_features = subject_features0 / np.sqrt(np.sum(subject_features0**2,1))[:,np.newaxis]
    subjects = OLIGO_LIBRARY.Sequences.values
    
-   umi_oligo_pairs = set({})
+   bc_oligo_pairs = set({})
    flush_number = 0
    
-   umi_oligo_counts = {}
-   #loop over all files (R1 only)
+   bc_oligo_counts = {}
    i = -1
 
-   print(nm)
-   print("HI")
    fn1 = nm+"_R1_001_{}.fastq".format(split)
    fn2 = nm+"_R2_001_{}.fastq".format(split)
 
@@ -119,7 +116,6 @@ def demultiplex( split,nm):
    r2fn =os.path.join(inp_dir,fn2)
    with open(r1fn) as f1:
        with open(r2fn) as f2:
-           print(f1)
            while 1:
                if i %10000 == 0: print(float(i) / 10000)
                
@@ -160,12 +156,12 @@ def demultiplex( split,nm):
                    
                    r2_consensus = "AATTCGTCGA"
                    try:
-                       umi_offset = r2.index(r2_consensus)
+                       bc_offset = r2.index(r2_consensus)
                    except ValueError:
                        notfound+=1
                        continue
-                   umi_start = umi_offset + len(r2_consensus)
-                   umi_seq = r2[umi_start:umi_start + 15]
+                   bc_start = bc_offset + len(r2_consensus)
+                   bc_seq = r2[bc_start:bc_start + 15]
 
                    try:
                        best,score2,secondbest_score2 = find_best_designed_target(oligo_seq,lsh_dict)
@@ -176,9 +172,9 @@ def demultiplex( split,nm):
                    if score2 < 100 or ( score2-secondbest_score2) <10:
                        poorly_aligned += 1
                    else:
-                       umi_oligo_counts[(umi_seq,best)]= umi_oligo_counts.get((umi_seq,best),0)+1
+                       bc_oligo_counts[(bc_seq,best)]= bc_oligo_counts.get((bc_seq,best),0)+1
                        
-   df = pd.DataFrame({"umi":k[0],"oligo":k[1],"count":v} for k,v in umi_oligo_counts.items())
+   df = pd.DataFrame({"bc":k[0],"oligo":k[1],"count":v} for k,v in bc_oligo_counts.items())
    df.to_csv(os.path.join(out_dir,"{}_{}.json".format(nm,split)),index=False)
 
 

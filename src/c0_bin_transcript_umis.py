@@ -1,12 +1,12 @@
 import pandas as pd
 import numpy as np
 import itertools as it
-import os,re, sys
+import os,re, sys,datetime
 from collections import defaultdict
 
 sys.path.append("/cluster/bh0085")
 from mybio import util
-from _config import DATA_DIR, OUT_PLACE, N_SPLITS, QSUBS_DIR, EXP_NAMES
+from _config import DATA_DIR, OUT_PLACE, N_SPLITS, QSUBS_DIR
 import _config
 
 #IO DIRECTORY CONFIG
@@ -14,7 +14,10 @@ NAME = util.get_fn(__file__)
 out_dir = os.path.join(OUT_PLACE, NAME)
 util.ensure_dir_exists(out_dir)
 inp_dir = os.path.join(OUT_PLACE, "b0_demultiplex_transcripts")
+logs_dir = os.path.join(LOGS_PLACE, NAME)
+util.ensure_dir_exists(logs_dir)
 
+rc = lambda x:"".join([{"A":"T","T":"A","G":"C","C":"G","N":"N"}[l] for l in x][::-1])
 
 #THIS FUNCTION GETS TRANSCRIPTS!!!!
 def wfun(r,ds,fnames):
@@ -64,7 +67,7 @@ def list_umis(pool_prefix, split,exp):
 
             if i % 10001 == 0:
                 print(i)
-            umi = l2[:15].strip()
+            umi = rc(l2[:15].strip())
             umis.append(umi)          
             t_umi = l1[:10].strip()
             t_umis.append(t_umi)
@@ -104,6 +107,9 @@ def gen_qsubs():
     qsub_commands = []
 
     num_scripts = 0
+    EXP_NAMES = os.listdir(inp_dir)
+
+    runtime = int(datetime.datetime.now().timestamp())
 
     for exp in EXP_NAMES:
             command = '/cluster/bh0085/anaconda27/envs/py3/bin/python %s.py %s' % (NAME, exp)
@@ -116,7 +122,11 @@ def gen_qsubs():
                 num_scripts += 1
         
             # Write qsub commands
-            qsub_commands.append(f'qsub -m e -wd {_config.SRC_DIR} {sh_fn}')
+                 
+            # Write qsub commands
+            outfile = os.path.join(logs_dir,f"o_{runtime}_{basename}_{snum}.txt")
+            errorfile = os.path.join(logs_dir,f"e_{runtime}_{basename}_{snum}.txt")
+            qsub_commands.append(f'qsub -o {outfile} -e {errorfile} -wd {_config.SRC_DIR} {sh_fn}' )
         
    # Save commands
     with open(qsubs_dir + '_commands.txt', 'w') as f:

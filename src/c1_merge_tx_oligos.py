@@ -10,7 +10,7 @@ from collections import defaultdict
 
 sys.path.append("/cluster/bh0085")
 from mybio import util
-from _config import DATA_DIR, OUT_PLACE, N_SPLITS, QSUBS_DIR, EXP_NAMES, OLIGO_LIBRARY, POSITIVE_CONTROLS_FILE
+from _config import DATA_DIR, OUT_PLACE, N_SPLITS, QSUBS_DIR, OLIGO_LIBRARY, POSITIVE_CONTROLS_FILE,EXP_NAMES
 import _config
 
 #IO DIRECTORY CONFIG
@@ -29,7 +29,7 @@ oligos_lib["id"] = oligos_lib.index
 positive_controls = pd.read_csv(POSITIVE_CONTROLS_FILE)
 
 
-from _config import DATA_DIR, OUT_PLACE, N_SPLITS, QSUBS_DIR, EXP_NAMES
+from _config import DATA_DIR, OUT_PLACE, N_SPLITS, QSUBS_DIR
 TX_INP_DIR = os.path.join(OUT_PLACE, "c0_bin_transcript_umis")
 OLIGO_INP_DIR = os.path.join(OUT_PLACE, "b1_demultiplex_oligos")
 
@@ -62,13 +62,12 @@ def matchmaker(split, bc_substr_idx):
     #load barcode-matched umis from dictionary reads
     for oligo_file in os.listdir(OLIGO_INP_DIR):
         #file_format = "../out/b1_demultiplex_oligos/20190320-100XSTARRseq-Nextera-PE_HKNM2AFXY_S1_L001_3.json"
-        if not ("_"+split+".json" in oligo_file):
+        if not ("_"+split+".csv" in oligo_file):
             continue
         
         print(oligo_file)
         
         a_output2 = pd.read_csv(os.path.join(OLIGO_INP_DIR,oligo_file))
-        a_output2 = a_output2.rename({"umi":"bc"}, axis = "columns")
         a_output_15 = a_output2.loc[a_output2.bc.str.len() == 15]
         total_oligos+= len(a_output2)
         

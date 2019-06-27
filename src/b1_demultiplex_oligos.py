@@ -2,23 +2,18 @@ import os, re, sys, json
 from collections import defaultdict
 import numpy as np, pandas as pd
 import _config
-reload (_config)
-from _config import SHE3202_FQ_FILES, EXP_DESIGN_2901, OLIGO_LIBRARY, SHE3202_DIR, A_BC_OLIGOS_OUT, OUT_DIR
-sys.path.append('/cluster/mshen/')
 
-from mylib import util, compbio
+from _config import SHE3202_FQ_FILES, EXP_DESIGN_2901, OLIGO_LIBRARY, SHE3202_DIR, A_BC_OLIGOS_OUT, OUT_PLACE as OUT_DIR
+sys.path.append('/cluster/bh0085/')
 
-
-
+from mybio import util
 
 # Default params
-inp_dir = OUT_DIR + 'a2_split_3202/'
+inp_dir = OUT_DIR + 'a2_split_all/'
 NAME = util.get_fn(__file__)
-out_dir = os.path.join(_config.OUT_DIR, NAME)
+out_dir = os.path.join(_config.OUT_PLACE, NAME)
 util.ensure_dir_exists(out_dir)
 
-
-print out_dir
 
 ##
 # Locality sensitive hashing
@@ -61,11 +56,6 @@ def find_best_designed_target(read, lsh_dict):
   sorted_scores = sorted(scores, key = scores.get, reverse = True)
   best_score = scores[sorted_scores[0]]
   secondbest_score = scores[sorted_scores[1]]
-  # cand_idxs = []
-  # for exp in sorted_scores:
-  #   if scores[exp] + 5 < best_score:
-  #     break
-  #   cand_idxs.append(exp)
   cand_idxs = sorted_scores[0]
   return cand_idxs, best_score,secondbest_score
 
@@ -117,27 +107,27 @@ def demultiplex( split,nm):
    #loop over all files (R1 only)
    i = -1
 
-   print nm
-   print "HI"
+   print(nm)
+   print("HI")
    fn1 = nm+"_R1_001_{}.fastq".format(split)
    fn2 = nm+"_R2_001_{}.fastq".format(split)
 
-   print fn1
-   print fn2
+   print(fn1)
+   print(fn2)
    
    r1fn =os.path.join(inp_dir,fn1)
    r2fn =os.path.join(inp_dir,fn2)
    with open(r1fn) as f1:
        with open(r2fn) as f2:
-           print f1
+           print(f1)
            while 1:
-               if i %10000 == 0: print float(i) / 10000
+               if i %10000 == 0: print(float(i) / 10000)
                
                i+=1
                try:
                    #for j in range(1+4*1000):
-                   l1 = f1.next()
-                   l2 = f2.next()
+                   l1 = next(f1)
+                   l2 = next(f2)
                except StopIteration:
                    break
    
@@ -161,7 +151,7 @@ def demultiplex( split,nm):
                      
                    try:
                        oligo_offset = r1.index("TGCACCGG")
-                   except ValueError,v:
+                   except ValueError as v:
                        notfound+=1
                        continue
                    
@@ -176,7 +166,7 @@ def demultiplex( split,nm):
                        continue
                    umi_start = umi_offset + len(r2_consensus)
                    umi_seq = r2[umi_start:umi_start + 15]
-                   #best_oligo,score,secondbest = selectbest(oligo_seq,subjects,subject_features)
+
                    try:
                        best,score2,secondbest_score2 = find_best_designed_target(oligo_seq,lsh_dict)
                    except ValueError:
@@ -186,12 +176,9 @@ def demultiplex( split,nm):
                    if score2 < 100 or ( score2-secondbest_score2) <10:
                        poorly_aligned += 1
                    else:
-                       #umi_oligo_pairs.add((umi_seq,best))
-                       #print score2, secondbest_score2
-                       #break
                        umi_oligo_counts[(umi_seq,best)]= umi_oligo_counts.get((umi_seq,best),0)+1
                        
-   df = pd.DataFrame({"umi":k[0],"oligo":k[1],"count":v} for k,v in umi_oligo_counts.iteritems())
+   df = pd.DataFrame({"umi":k[0],"oligo":k[1],"count":v} for k,v in umi_oligo_counts.items())
    df.to_csv(os.path.join(out_dir,"{}_{}.json".format(nm,split)),index=False)
 
 
@@ -200,7 +187,7 @@ def demultiplex( split,nm):
 ##
 def gen_qsubs():
   # Generate qsub shell scripts and commands for easy parallelization
-    print 'Generating qsub scripts...'
+    print('Generating qsub scripts...')
     qsubs_dir = _config.QSUBS_DIR + NAME + '/'
     util.ensure_dir_exists(qsubs_dir)
     qsub_commands = []
@@ -209,7 +196,7 @@ def gen_qsubs():
     for fn in os.listdir(inp_dir):
        basename,rnum,snum = re.compile("(.*)_R(\d)_001_(\d+).fastq").search(fn).groups()
        if int(rnum)==1:
-         command = 'python %s.py %s %s' % (NAME, snum, basename)
+         command = '/cluster/bh0085/anaconda27/envs/py3/bin/python %s.py %s %s' % (NAME, snum, basename)
          script_id = NAME.split('_')[0]
 
          # Write shell scripts
@@ -225,7 +212,7 @@ def gen_qsubs():
     with open(qsubs_dir + '_commands.txt', 'w') as f:
      f.write('\n'.join(qsub_commands))
 
-    print 'Wrote %s shell scripts to %s' % (num_scripts, qsubs_dir)
+    print('Wrote %s shell scripts to %s' % (num_scripts, qsubs_dir))
     return
 
 

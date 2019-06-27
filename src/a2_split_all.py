@@ -1,30 +1,24 @@
 # 
-from __future__ import division
 import _config
-import sys, os, fnmatch, datetime, subprocess, imp
-sys.path.append('/cluster/mshen/')
+import sys, os, fnmatch, datetime, subprocess
 import numpy as np
-from collections import defaultdict
-from mylib import util
+sys.path.append('/cluster/bh0085/')
+from mybio import util
 import pandas as pd
-import matplotlib
-matplotlib.use('Pdf')
-import matplotlib.pyplot as plt
-import seaborn as sns
 
-
-import gzip
 
 # Default params
 inp_dirs = [_config.SHE3202_DIR, _config.SHE3439_DIR]
 NAME = util.get_fn(__file__)
-out_dir = _config.OUT_DIR + NAME + '/'
-print out_dir
+out_dir = _config.OUT_PLACE + NAME + '/'
+print(out_dir)
 util.ensure_dir_exists(out_dir)
 
 ##
 # Functions
 ##
+
+
 def split(inp_fn, out_nm):
   inp_fn_numlines = util.line_count(inp_fn)
 
@@ -34,7 +28,9 @@ def split(inp_fn, out_nm):
     split_size += 1
   while split_size % 4 != 0:
     split_size += 1
-  print 'Using split size %s' % (split_size)
+
+  
+  print('Using split size %s' % (split_size))
 
   split_num = 0
   for idx in range(1, inp_fn_numlines, split_size):
@@ -43,7 +39,7 @@ def split(inp_fn, out_nm):
     out_fn = out_dir + out_nm + '_%s.fastq' % (split_num)
     command = 'tail -n +%s %s | head -n %s > %s' % (  start,inp_fn, end - start, out_fn)
     split_num += 1
-    print command
+    print(command)
 
   return
 
@@ -53,7 +49,7 @@ def split(inp_fn, out_nm):
 ##
 @util.time_dec
 def main():
-  print NAME  
+  print(NAME)  
   
   # Function calls
   for inp_dir in inp_dirs:
@@ -61,7 +57,7 @@ def main():
       if fn[-5:] == 'fastq':
         split(inp_dir + fn, fn.replace('.fastq', ''))
 
-    return
+  return
 
 
 if __name__ == '__main__':

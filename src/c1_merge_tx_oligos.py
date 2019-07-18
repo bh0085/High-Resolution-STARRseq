@@ -56,18 +56,23 @@ def matchmaker(split, bc_substr_idx):
 
     merged_results = pd.DataFrame()
     tx_discovery_rates = []
-    oligo_mapping_success_rates = []
     total_txs = 0
     total_oligos = 0
+    oligo_mapping_multiplicity = []
+  
+    print("HELLO")
+    print(OLIGO_INP_DIR)
     #load barcode-matched umis from dictionary reads
     for oligo_file in os.listdir(OLIGO_INP_DIR):
+        #print("HI")
+        #print(oligo_file)
         #file_format = "../out/b1_demultiplex_oligos/20190320-100XSTARRseq-Nextera-PE_HKNM2AFXY_S1_L001_3.json"
-        if not ("_"+split+".csv" in oligo_file):
+        if not ("_"+split+"." in oligo_file):
             continue
-        
+        #print("CNT")
         print(oligo_file)
         
-        a_output2 = pd.read_csv(os.path.join(OLIGO_INP_DIR,oligo_file))
+        a_output2 = pd.read_csv(os.path.join(OLIGO_INP_DIR,oligo_file)).rename({"umi":"bc"},axis="columns")
         a_output_15 = a_output2.loc[a_output2.bc.str.len() == 15]
         total_oligos+= len(a_output2)
         
@@ -83,19 +88,32 @@ def matchmaker(split, bc_substr_idx):
 
             for exp in EXP_NAMES:
         
+                print(exp)
                 tx_file = os.path.join(TX_INP_DIR,"{}_{}.csv".format(exp,k))
-                tx_subdict_df = pd.read_csv(tx_file)
+
+                print(f"oligo file: {oligo_file}\ntx_file: {tx_file}")
+                tx_subdict_df = pd.read_csv(tx_file)[["bc","umi"]]
                 tx_subdict_df["exp"] = exp
+                tx_subdict_df["src"] = "SHE3202" if "3202" in oligo_file else "SHE3439" 
+
                 total_txs += len(tx_subdict_df)
-                merged_results = merged_results.append(pd.merge(tx_subdict_df,ogroup,on="bc"))
-                                        
+                joined = pd.merge(ogroup.rename({"count":"oligo_reads"},axis="columns"),tx_subdict_df.groupby(["bc","umi","exp"]).size().rename("dictionary_reads").reset_index())
+                merged_results = merged_results.append(joined)
+                print(cnt)
+                oligo_mapping_multiplicity.append(float(len(joined)) / len(ogroup))
+                tx_discovery_rates.append(float(len(joined)) / len(tx_subdict_df))
 
-                oligo_mapping_success_rates.append(float(len(merged_results)) / len(ogroup))
-                tx_discovery_rates.append(float(len(merged_results)) / len(tx_subdict_df))
-
-
+            break
+        break
+    print(os.path.join(OUT_DIR,f"merged_{bc_substr_idx}_{split}.csv"))
     merged_results.to_csv(os.path.join(OUT_DIR,f"merged_{bc_substr_idx}_{split}.csv"),index=False)
+    import json
 
+    print(tx_discovery_rates)
+    print(f"""<json>{json.dumps({
+        "oligo_mapping_multiplicity":oligo_mapping_multiplicity,
+        "tx_discovery_rates":tx_discovery_rates
+    })}</json>""")
 
 
 
@@ -137,9 +155,13 @@ def gen_qsubs():
 ##
 @util.time_dec
 def main(split='', bc_substr_idx='' ):
+  print("WTF")
   if split == '':
     gen_qsubs()
     return
+  print("MATCHING")
+  print(split,bc_substr_idx)
+  
 
   matchmaker(split, bc_substr_idx)
   return OUT_DIR

@@ -6,7 +6,7 @@ from collections import defaultdict
 
 sys.path.append("/cluster/bh0085")
 from mybio import util
-from _config import DATA_DIR, OUT_PLACE, N_SPLITS, QSUBS_DIR
+from _config import DATA_DIR, OUT_PLACE, N_SPLITS, QSUBS_DIR, LOGS_PLACE,EXP_NAMES
 import _config
 
 #IO DIRECTORY CONFIG
@@ -32,12 +32,19 @@ fa_found = [e for r,d,fs in os.walk("../out/b0_demultiplex_transcripts/",wfun) f
 
 def list_umis(pool_prefix, split,exp):
     
+
     f_infos = dict([[fn,re.compile("(?P<pool_prefix>[^/]*)/(?P<exp>[^/]*)/R(?P<rnum>[12])_(?P<split>\d+).fa").search(fn).groupdict()] 
                      for fn in fa_found])
 
-    f1 = [k for k,v in f_infos.items() if v["rnum"] == "1" and v["split"]==split and v["exp"]==exp and v["pool_prefix"]==pool_prefix][0] 
-    f2 = [k for k,v in f_infos.items() if v["rnum"] == "2" and v["split"]==split and v["exp"]==exp and v["pool_prefix"]==pool_prefix][0] 
 
+    #print(f_infos)
+    print(split,exp,pool_prefix)
+    try:
+       f1 = [k for k,v in f_infos.items() if v["rnum"] == "1" and v["split"]==split and v["exp"]==exp and v["pool_prefix"]==pool_prefix][0] 
+       f2 = [k for k,v in f_infos.items() if v["rnum"] == "2" and v["split"]==split and v["exp"]==exp and v["pool_prefix"]==pool_prefix][0] 
+    except IndexError:
+        print(f"not found: {split},{exp},{pool_prefix}")   
+        return [], [], []
     skipcount = 0
     nl = 0
     nacc = 0
@@ -85,7 +92,11 @@ def run_splits( exp):
         splits = range(N_SPLITS)
         for split in splits:
             total_count = 0 
+            print(exp)
+            print(inp_dir)
+            print(pool_prefix)
             bcs,umis,stats = list_umis(pool_prefix,str(split) , exp)
+            
             if len(bcs) > 0:
                 all_bcs = all_bcs.append([{"bc":bc,"umi":umis[i],"exp":exp} for i,bc in enumerate(bcs)],ignore_index=True)
             else:
@@ -107,7 +118,7 @@ def gen_qsubs():
     qsub_commands = []
 
     num_scripts = 0
-    EXP_NAMES = os.listdir(inp_dir)
+
 
     runtime = int(datetime.datetime.now().timestamp())
 
@@ -124,8 +135,8 @@ def gen_qsubs():
             # Write qsub commands
                  
             # Write qsub commands
-            outfile = os.path.join(logs_dir,f"o_{runtime}_{basename}_{snum}.txt")
-            errorfile = os.path.join(logs_dir,f"e_{runtime}_{basename}_{snum}.txt")
+            outfile = os.path.join(logs_dir,f"o_{runtime}_{exp}.txt")
+            errorfile = os.path.join(logs_dir,f"e_{runtime}_{exp}.txt")
             qsub_commands.append(f'qsub -o {outfile} -e {errorfile} -wd {_config.SRC_DIR} {sh_fn}' )
         
    # Save commands

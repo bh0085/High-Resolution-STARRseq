@@ -18,8 +18,8 @@
 *.swp
 *split_cmds.txt
 
-*.ipynb
-.ipynb*
+
+
 *.pyc
 
 *.code-workspace

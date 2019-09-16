@@ -36,7 +36,7 @@ oligos_lib["start_index"] = oligos_lib.starts.apply(lambda x: start_indexes.loc[
 def save_oligos():
     #DEFINE CONSTANTS
 
-    global oligos
+
     oligos = oligos.set_index("oligo")
     oligos = oligos.join(oligos_lib, on ="oligo")#.dropna()
     oligos["mu"] = oligos.n_transcripts / oligos.n_bcs
@@ -58,30 +58,24 @@ def save_oligos():
     oligos_by_exp["exp_nm"] = oligos_by_exp.apply(lambda x:re.compile("_BR.").sub("",x.exp),axis=1)          
     oligos_by_exp["rep"] = oligos_by_exp.apply(lambda x:np.int32(re.compile("_BR(.)").search(x.exp).group(1)) if "BR" in x.exp else np.nan,axis=1)
     oligos_by_exp= oligos_by_exp.loc[oligos_by_exp.exp != "other"]
-
+    oligos_by_exp = oligos_by_exp.reset_index().set_index(["exp","starts"])\
+        .loc[oligos_by_exp.groupby(["exp","starts"]).size().where(lambda x: x ==5).dropna().index]\
+        .reset_index().set_index(["exp","oligo"])
+    oligos_by_exp = oligos_by_exp.reset_index().set_index(["exp","starts"])\
+        .loc[(oligos_by_exp.groupby(["exp","starts"]).mutant_num.min() == 0).where(lambda x: x==True).dropna().index]\
+        .reset_index().set_index(["exp","oligo"])
     oligos_by_exp["start_index"] = oligos_by_exp.starts.apply(lambda x: start_indexes.loc[x])
+
     chrom_info = oligos.groupby("chromosome_info").first().apply(lambda x: pd.Series(re.compile("(?P<chrom>[^:]*):(?P<gstart>\d+)-(?P<gend>\d+)").search(x.name).groupdict()),axis=1)
 
     oligos_by_exp = oligos_by_exp.reset_index().merge(chrom_info,on="chromosome_info").set_index(["exp","oligo"])
     oligos_by_exp["gstart"] = oligos_by_exp.gstart.astype(np.int32)
     oligos_by_exp["gend"] = oligos_by_exp.gend.astype(np.int32)
 
-    oligos_by_exp_all = oligos_by_exp.copy()
-
-    oligos_by_exp = oligos_by_exp.reset_index().set_index(["exp","starts"])\
-         .loc[oligos_by_exp.groupby(["exp","starts"]).size().where(lambda x: x ==5).dropna().index]\
-         .reset_index().set_index(["exp","oligo"])
-    oligos_by_exp = oligos_by_exp.reset_index().set_index(["exp","starts"])\
-        .loc[(oligos_by_exp.groupby(["exp","starts"]).mutant_num.min() == 0).where(lambda x: x==True).dropna().index]\
-        .reset_index().set_index(["exp","oligo"])
-
-
     #processed data files
     oligos.to_csv("../out/0707_STARRSEQ_oligo_stats.csv")
     oligos_by_exp.to_csv("../out/0707_STARRSEQ_oligos_stats_by_experiment.csv")
-    oligos_by_exp_all.to_csv("../out/0707_STARRSEQ_oligos_stats_by_experiment_all.csv")
 
 def load_oligos():
     return [pd.read_csv("../out/0707_STARRSEQ_oligo_stats.csv",index_col="oligo"),
-         pd.read_csv("../out/0707_STARRSEQ_oligos_stats_by_experiment.csv",index_col=["exp","oligo"]),
-          pd.read_csv("../out/0707_STARRSEQ_oligos_stats_by_experiment_all.csv",index_col=["exp","oligo"])]
+         pd.read_csv("../out/0707_STARRSEQ_oligos_stats_by_experiment.csv",index_col=["exp","oligo"])]

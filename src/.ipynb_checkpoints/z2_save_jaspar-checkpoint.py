@@ -154,6 +154,4 @@ def load_jaspar():
 
     jaspar = pd.read_csv("../out/0708_jaspar.csv", index_col = "jaspar_id")
     jaspar["pssm"] = pd.Series([j.pssm for j in jaspar_motifs])
-    jaspar["pwm"] = pd.Series([j.pwm for j in jaspar_motifs])
-
     return jaspar

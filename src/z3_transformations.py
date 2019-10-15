@@ -2,92 +2,107 @@ import pandas as pd
 import numpy as np
 import re
 from scipy.stats import ks_2samp
+from scipy import stats
 
+def get_ofs_opts(df):
+    starts = df.index.get_level_values("starts")
+    return np.array([i for i,start in enumerate(starts) if  (len(starts[i:i+4]) ==len(starts[i+1:i+5]) ) and (sum(starts[i:i+4] - starts[i+1:i+5]) == -120)])
 
+def get_ofs_idxs(df):
+    starts = df.index.get_level_values("starts")
+    ofs_range = np.array([i for i,start in enumerate(starts) if  (len(starts[i:i+4]) ==len(starts[i+1:i+5]) ) and (sum(starts[i:i+4] - starts[i+1:i+5]) == -120)])
+    return df.index.get_level_values("starts")[ofs_range+4]
+    
 
 def compute_filters(all_obe):
+    
+    opts_df = all_obe.unstack(level=1).groupby(level=1).apply(
+        lambda df: get_ofs_opts(df))
+    idxs_df = all_obe.unstack(level=1).groupby(level=1).apply(
+        lambda df: get_ofs_idxs(df))
+
     filters = pd.concat(
     [all_obe.unstack(level=1).groupby(level=1).apply(
     lambda df:
-    pd.Series([(df.values[ofs:ofs+4,:] * (
+    pd.Series([np.nansum((df.values[ofs:ofs+4,:] * (
     np.concatenate([
         (np.zeros((4,1))+1),
         np.fliplr(1 - np.diag([1,1,1,1]))],
     axis=1))
-           ).sum()  
-    for ofs in range(len(df.values) - 4)],index = df.index[4:])
+        ))
+    for ofs in get_ofs_opts(df)],index = idxs_df.loc[df.name])
     ).rename("allothers") / 16,
     all_obe.unstack(level=1).groupby(level=1).apply(
     lambda df:
-    pd.Series([(df.values[ofs:ofs+4,:] * (
+    pd.Series([np.nansum((df.values[ofs:ofs+4,:] * (
     np.concatenate([
         (np.zeros((4,1))),
         np.fliplr( np.diag([1,1,1,1]))],
     axis=1))
-           ).sum()  
-    for ofs in range(len(df.values) - 4)],index = df.index[4:])
+        ))  
+    for ofs in opts_df.loc[df.name]],index = idxs_df.loc[df.name])
     ).rename("onlyablations") / 4,
 
     all_obe.unstack(level=1).groupby(level=1).apply(
     lambda df:
-    pd.Series([
+    pd.Series([np.nansum(
     (df.values[ofs:ofs+5,:][np.nonzero(
-                   1-np.array(
-                      [[0,0,0,0,1],
-                       [0,0,0,1,1],
-                       [0,0,1,1,0],
-                       [0,1,1,0,0],
-                       [0,1,0,0,0]]))]
-           ).sum()   
-    for ofs in range(len(df.values) - 4)],index = df.index[4:])
+                1-np.array(
+                    [[0,0,0,0,1],
+                    [0,0,0,1,1],
+                    [0,0,1,1,0],
+                    [0,1,1,0,0],
+                    [0,1,0,0,0]]))]
+        ))
+    for ofs in opts_df.loc[df.name]],index = idxs_df.loc[df.name])
     ).rename("allothers2") / 17,
     all_obe.unstack(level=1).groupby(level=1).apply(
     lambda df:
-    pd.Series([np.std(df.values[ofs:ofs+4,:][np.nonzero (
+    pd.Series([np.nanstd(df.values[ofs:ofs+4,:][np.nonzero (
     np.concatenate([
         (np.zeros((4,1))+1),
         np.fliplr(1 - np.diag([1,1,1,1]))],
     axis=1))
-                                         ])
-    for ofs in range(len(df.values) - 4)],index = df.index[4:])
+                                        ])
+    for ofs in opts_df.loc[df.name]],index = idxs_df.loc[df.name])
     ).rename("allothersstd"),
     all_obe.unstack(level=1).groupby(level=1).apply(
     lambda df:
-    pd.Series([np.std(df.values[ofs:ofs+4,:])  
-    for ofs in range(len(df.values) - 4)],index = df.index[4:])
+    pd.Series([np.nanstd(df.values[ofs:ofs+4,:])  
+    for ofs in opts_df.loc[df.name]],index = idxs_df.loc[df.name])
     ).rename("std"),
-     all_obe.unstack(level=1).groupby(level=1).apply(
+    all_obe.unstack(level=1).groupby(level=1).apply(
     lambda df:
-    pd.Series([
+    pd.Series([np.nansum(
     (df.values[ofs:ofs+5,:][np.nonzero(
-                   np.array([[0,0,0,0,1],
-                   [0,0,0,1,1],
-                   [0,0,1,1,0],
-                   [0,1,1,0,0],
-                   [0,1,0,0,0]]))]
-           ).sum()  
-    for ofs in range(len(df.values) - 4)],index = df.index[4:])
+                np.array([[0,0,0,0,1],
+                [0,0,0,1,1],
+                [0,0,1,1,0],
+                [0,1,1,0,0],
+                [0,1,0,0,0]]))]
+        ))  
+    for ofs in opts_df.loc[df.name]],index = idxs_df.loc[df.name])
     ).rename("onlyablations2") / 8,
-      all_obe.unstack(level=1).groupby(level=1).apply(
+    all_obe.unstack(level=1).groupby(level=1).apply(
     lambda df:
-    pd.Series([(df.values[ofs:ofs+4,:] * (
+    pd.Series([np.nansum((df.values[ofs:ofs+4,:] * (
     np.concatenate([
         (np.zeros((4,1))),
         np.fliplr(1 - np.diag([1,1,1,1]))],
     axis=1))
-           ).sum()  
-    for ofs in range(len(df.values) - 4)],index = df.index[4:])
+        ))  
+    for ofs in opts_df.loc[df.name]],index = idxs_df.loc[df.name])
     ).rename("othermutants") / 12,
 
-      all_obe.unstack(level=1).groupby(level=1).apply(
+    all_obe.unstack(level=1).groupby(level=1).apply(
     lambda df:
-    pd.Series([(df.values[ofs:ofs+4,:] * (
+    pd.Series([np.nansum((df.values[ofs:ofs+4,:] * (
     np.concatenate([
         (np.zeros((4,1))+1),
         np.fliplr(0* np.diag([1,1,1,1]))],
     axis=1))
-           ).sum()  
-    for ofs in range(len(df.values) - 4)],index = df.index[4:])
+        )) 
+    for ofs in opts_df.loc[df.name]],index = idxs_df.loc[df.name])
     ).rename("onlywildtype") / 4,
     all_obe.unstack(level=1).groupby(level=1).apply(lambda df:
 
@@ -95,43 +110,71 @@ def compute_filters(all_obe):
         (np.zeros((4,1))+1),
         np.fliplr(1-np.diag([1,1,1,1]))],
     axis=1))] ,
-             df.values[ofs:ofs+4,:][np.nonzero(  np.concatenate([
+            df.values[ofs:ofs+4,:][np.nonzero(  np.concatenate([
         (np.zeros((4,1))+0),
         np.fliplr(np.diag([1,1,1,1]))],
     axis=1))])[1]
-      for ofs in range(len(df.values) - 4)],index = df.index[4:])).rename("ks_pval"),
+    for ofs in opts_df.loc[df.name]],index = idxs_df.loc[df.name])).rename("ks_pval"),
 
-      all_obe.unstack(level=1).groupby(level=1).apply(lambda df:
+    all_obe.unstack(level=1).groupby(level=1).apply(lambda df:
 
     pd.Series([ks_2samp( df.values[ofs:ofs+5,:][np.nonzero(
-                   np.array([[0,0,0,0,1],
-                   [0,0,0,1,1],
-                   [0,0,1,1,0],
-                   [0,1,1,0,0],
-                   [0,1,0,0,0]]))],
-       df.values[ofs:ofs+5,:][np.nonzero(
-                   1- np.array([[0,0,0,0,1],
-                   [0,0,0,1,1],
-                   [0,0,1,1,0],
-                   [0,1,1,0,0],
-                   [0,1,0,0,0]]))]
+                np.array([[0,0,0,0,1],
+                [0,0,0,1,1],
+                [0,0,1,1,0],
+                [0,1,1,0,0],
+                [0,1,0,0,0]]))],
+    df.values[ofs:ofs+5,:][np.nonzero(
+                1- np.array([[0,0,0,0,1],
+                [0,0,0,1,1],
+                [0,0,1,1,0],
+                [0,1,1,0,0],
+                [0,1,0,0,0]]))]
     )[1]
-      for ofs in range(len(df.values) - 4)],index = df.index[4:])).rename("ks2_pval"),
+    for ofs in opts_df.loc[df.name]],index = idxs_df.loc[df.name])).rename("ks2_pval"),
 
 
+    all_obe.unstack(level=1).groupby(level=1).apply(lambda df:
+
+    pd.Series([stats.ttest_ind( df.values[ofs:ofs+4,:][np.nonzero(   np.concatenate([
+        (np.zeros((4,1))+1),
+        np.fliplr(1-np.diag([1,1,1,1]))],
+    axis=1))] ,
+            df.values[ofs:ofs+4,:][np.nonzero(  np.concatenate([
+        (np.zeros((4,1))+0),
+        np.fliplr(np.diag([1,1,1,1]))],
+    axis=1))])[1]
+    for ofs in opts_df.loc[df.name]],index = idxs_df.loc[df.name])).rename("ttest_pval"),
+
+    all_obe.unstack(level=1).groupby(level=1).apply(lambda df:
+
+    pd.Series([stats.ttest_ind( df.values[ofs:ofs+5,:][np.nonzero(
+                np.array([[0,0,0,0,1],
+                [0,0,0,1,1],
+                [0,0,1,1,0],
+                [0,1,1,0,0],
+                [0,1,0,0,0]]))],
+    df.values[ofs:ofs+5,:][np.nonzero(
+                1- np.array([[0,0,0,0,1],
+                [0,0,0,1,1],
+                [0,0,1,1,0],
+                [0,1,1,0,0],
+                [0,1,0,0,0]]))]
+    )[1]
+    for ofs in opts_df.loc[df.name]],index = idxs_df.loc[df.name])).rename("ttest2_pval"),
     all_obe.unstack(level=1).groupby(level=1).apply(lambda df:
 
     pd.Series([ks_2samp( df.values[ofs:ofs+4,:][np.nonzero(   np.concatenate([
         (np.zeros((4,1))+1),
         np.fliplr(1-np.diag([1,1,1,1]))],
     axis=1))] ,
-             df.values[ofs:ofs+4,:][np.nonzero(  np.concatenate([
+            df.values[ofs:ofs+4,:][np.nonzero(  np.concatenate([
         (np.zeros((4,1))+0),
         np.fliplr(np.diag([1,1,1,1]))],
     axis=1))])[0]
-      for ofs in range(len(df.values) - 4)],index = df.index[4:])).rename("ks_stat")
-    ],axis = 1).reset_index(level=2, drop=True)
-    
+    for ofs in opts_df.loc[df.name]],index = idxs_df.loc[df.name])).rename("ks_stat")
+    ],axis = 1)
+
     filters.index.names = ["exp_type","starts"]
     filters["actual_starts"] = filters.index.get_level_values("starts") + 30
     filters = filters.reset_index(level=1, drop = True).set_index("actual_starts",append=True)
@@ -160,11 +203,13 @@ def compute_filters(all_obe):
 
     filters["filterchange"] = np.max(
         [(filters.onlyablations - filters.allothers),
-         (filters.onlyablations2 - filters.allothers2)]
+        (filters.onlyablations2 - filters.allothers2)]
     )
     filters["ks_1or2"] = filters.apply(lambda x: (x.ks_pval < .05) | (x.ks2_pval < .05),axis =1)
     filters["log_ks_pval"] = np.log(filters.ks_pval)
     filters_hq = filters.loc[lambda x: x.ks_1or2]
+
+
     return filters_hq
 
 

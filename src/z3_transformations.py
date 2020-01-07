@@ -14,7 +14,7 @@ def get_ofs_idxs(df):
     return df.index.get_level_values("starts")[ofs_range+4]
     
 
-def compute_filters(all_obe):
+def compute_filters(all_obe, hq = False):
     
     opts_df = all_obe.unstack(level=1).groupby(level=1).apply(
         lambda df: get_ofs_opts(df))
@@ -143,25 +143,26 @@ def compute_filters(all_obe):
             df.values[ofs:ofs+4,:][np.nonzero(  np.concatenate([
         (np.zeros((4,1))+0),
         np.fliplr(np.diag([1,1,1,1]))],
-    axis=1))])[1]
-    for ofs in opts_df.loc[df.name]],index = idxs_df.loc[df.name])).rename("ttest_pval"),
+    axis=1))])
+    for ofs in opts_df.loc[df.name]],index = idxs_df.loc[df.name])).apply(lambda x:pd.Series([x[0],x[1]])).rename({0:"ttest_ttval",1:"ttest_pval"},axis=1),
 
     all_obe.unstack(level=1).groupby(level=1).apply(lambda df:
 
-    pd.Series([stats.ttest_ind( df.values[ofs:ofs+5,:][np.nonzero(
-                np.array([[0,0,0,0,1],
-                [0,0,0,1,1],
-                [0,0,1,1,0],
-                [0,1,1,0,0],
-                [0,1,0,0,0]]))],
-    df.values[ofs:ofs+5,:][np.nonzero(
+    pd.Series([stats.ttest_ind( 
+        df.values[ofs:ofs+5,:][np.nonzero(
                 1- np.array([[0,0,0,0,1],
                 [0,0,0,1,1],
                 [0,0,1,1,0],
                 [0,1,1,0,0],
+                [0,1,0,0,0]]))],
+        df.values[ofs:ofs+5,:][np.nonzero(
+                np.array([[0,0,0,0,1],
+                [0,0,0,1,1],
+                [0,0,1,1,0],
+                [0,1,1,0,0],
                 [0,1,0,0,0]]))]
-    )[1]
-    for ofs in opts_df.loc[df.name]],index = idxs_df.loc[df.name])).rename("ttest2_pval"),
+    )
+    for ofs in opts_df.loc[df.name]],index = idxs_df.loc[df.name])).apply(lambda x:pd.Series([x[0],x[1]])).rename({0:"ttest2_ttval",1:"ttest2_pval"},axis=1),
     all_obe.unstack(level=1).groupby(level=1).apply(lambda df:
 
     pd.Series([ks_2samp( df.values[ofs:ofs+4,:][np.nonzero(   np.concatenate([
@@ -175,10 +176,10 @@ def compute_filters(all_obe):
     for ofs in opts_df.loc[df.name]],index = idxs_df.loc[df.name])).rename("ks_stat")
     ],axis = 1)
 
-    filters.index.names = ["exp_type","starts"]
+    filters.index.names = ["analysis_group_key","starts"]
     filters["actual_starts"] = filters.index.get_level_values("starts") + 30
     filters = filters.reset_index(level=1, drop = True).set_index("actual_starts",append=True)
-    filters.index.names = ["exp_type","mutant_start_position"]
+    filters.index.names = ["analysis_group_key","mutant_start_position"]
 
     filters["mutdiff"] = filters["othermutants"] - filters["onlyablations"]
     filters["wtdiff"] = filters["onlywildtype"] - filters["onlyablations"]\
@@ -207,10 +208,13 @@ def compute_filters(all_obe):
     )
     filters["ks_1or2"] = filters.apply(lambda x: (x.ks_pval < .05) | (x.ks2_pval < .05),axis =1)
     filters["log_ks_pval"] = np.log(filters.ks_pval)
-    filters_hq = filters.loc[lambda x: x.ks_1or2]
 
 
-    return filters_hq
+    if hq:
+        filters_hq = filters.loc[lambda x: x.ks_1or2]
+        return filters_hq
+    else:
+        return filters
 
 
 def compute_quantiles(filters):
@@ -228,13 +232,13 @@ def compute_quantiles(filters):
         change_quantile = quantile
 
         #USES ALL EXPRESSION VALUES
-        mubar_wt_cutoffs = filters.groupby("exp_type").onlywildtype.quantile(wt_quantile)
-        mubar_ablation_cutoffs = filters.groupby("exp_type").onlyablations.quantile(ablation_quantile)
+        mubar_wt_cutoffs = filters.groupby("analysis_group_key").onlywildtype.quantile(wt_quantile)
+        mubar_ablation_cutoffs = filters.groupby("analysis_group_key").onlyablations.quantile(ablation_quantile)
 
         these_filters["filterchange"] =  these_filters.apply(lambda x:
                                                         np.max(np.abs([x.onlyablations - x.allothers,
                                                                 x.onlyablations2 - x.allothers2,])),axis=1)
-        filter_change_cutoff = these_filters.filterchange.groupby("exp_type").quantile(change_quantile)
+        filter_change_cutoff = these_filters.filterchange.groupby("analysis_group_key").quantile(change_quantile)
 
         these_filters["ablation_mu_filtered"] = these_filters.apply(
             lambda y:(1 if 

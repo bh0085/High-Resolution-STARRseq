@@ -1,0 +1,6 @@
+README
+starr-analyis package
+
+Analysis of STARR-seq expression data for UMI & barcode-tagged transcripts in the APOBEC-3B gene region. Adjust .config file to set sequencing read locations. 
+
+Pipeline steps are listed in `_run_all.sh`
